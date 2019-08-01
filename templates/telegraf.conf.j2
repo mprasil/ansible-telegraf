@@ -8,7 +8,7 @@
 {% endif %}
 
 {% if telegraf_agent_aws_tags == true and ec2_tags is defined and ec2_tags != None %}
-{% for key, value in ec2_tags.tags.iteritems()%}
+{% for key, value in ec2_tags.tags.items()%}
    {{telegraf_agent_aws_tags_prefix}}{{ key }} = "{{ value }}"
 {% endfor %}
 {% endif %}
@@ -28,7 +28,11 @@
     quiet = {{ telegraf_agent_quiet | lower }}
 {% endif %}
 {% if telegraf_agent_version is version_compare('1.1', '>=') %}
+{% if ansible_os_family == "Windows" %}
+    logfile = "{{ telegraf_win_logfile }}"
+{% else %}
     logfile = "{{ telegraf_agent_logfile }}"
+{% endif %}
     omit_hostname = {{ telegraf_agent_omit_hostname | lower }}
 {% endif %}
 
@@ -42,6 +46,18 @@
 {% for items in item.config %}
     {{ items }}
 {% endfor %}
+{% if item.tagpass is defined and item.tagpass is iterable %}
+[outputs.{{ item.type }}.tagpass]
+{% for items in item.tagpass %}
+    {{ items }}
+{% endfor %}
+{% endif %}
+{% if item.tagdrop is defined and item.tagdrop is iterable %}
+[outputs.{{ item.type }}.tagdrop]
+{% for items in item.tagdrop %}
+    {{ items }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 
@@ -67,32 +83,46 @@
 {% endfor %}
 {% endif %}
 {% if item.tagpass is defined and item.tagpass is iterable %}
-[{{ item.plugin }}.tagpass]
+[inputs.{{ item.plugin }}.tagpass]
 {% for items in item.tagpass %}
     {{ items }}
 {% endfor %}
 {% endif %}
 {% if item.tagdrop is defined and item.tagdrop is iterable %}
-[{{ item.plugin }}.tagdrop]
+[inputs.{{ item.plugin }}.tagdrop]
 {% for items in item.tagdrop %}
     {{ items }}
 {% endfor %}
 {% endif %}
-{% if item.pass is defined and item.pass is iterable %}
-[{{ item.plugin }}.pass]
-{% for items in item.pass %}
-    {{ items }}
+{% if item.objects is defined and item.objects is iterable %}
+{% for object in item.objects %}
+[[inputs.{{ item.plugin }}.object]]
+  ObjectName = {{ object.name | to_json }}
+  Instances = {{ object.instances | default(["*"]) | to_json }}
+  Counters = {{ object.counters | default(["*"]) | to_json }}
+  Measurement = {{ object.measurement | default("win_perf_counters") | to_json }}
+  IncludeTotal = {{ object.total | default(false) | string | lower }}
 {% endfor %}
 {% endif %}
-{% if item.drop is defined and item.drop is iterable %}
-[{{ item.plugin }}.drop]
-{% for items in item.drop %}
-    {{ items }}
 {% endfor %}
 {% endif %}
-{% if item.specifications is defined and item.specifications is iterable %}
-[[{{item.plugin}}.specifications]]
-{% for items in item.specifications %}
+
+{% if telegraf_plugins_default is defined and telegraf_plugins_default|length == 0 %}
+{% if telegraf_plugins_extra is defined and telegraf_plugins_extra.keys() | length == 0 %}
+# No plugins configured, added a mem plugin so telegraf doesn't stop working.
+[[inputs.mem]]
+{% endif %}
+{% endif %}
+
+###############################################################################
+#                                  PROCESSORS                                    #
+###############################################################################
+
+{% if telegraf_processors is defined and telegraf_processors is iterable %}
+{% for item in telegraf_processors %}
+[[processors.{{ item.processor }}]]
+{% if item.config is defined and item.config is iterable %}
+{% for items in item.config %}
     {{ items }}
 {% endfor %}
 {% endif %}
