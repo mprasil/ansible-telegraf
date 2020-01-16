@@ -81,3 +81,6 @@ telegraf_win_service_args:
   - -service install
   - -config {{ telegraf_win_install_dir }}\telegraf\telegraf.conf
   - --config-directory {{ telegraf_win_include }}
+
+telegraf_deb_repo_base: "https://repos.influxdata.com"
+telegraf_deb_repo_string: "deb {{ telegraf_deb_repo_base }}/{{ ansible_distribution|lower }} {{ ansible_lsb.codename|default(ansible_distribution_release) }} stable"
